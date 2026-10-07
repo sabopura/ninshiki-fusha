@@ -102,7 +102,7 @@ canvas{position:fixed;inset:0;display:block;width:100%;height:100%}
       <div><b>③ 認識</b>注目度MAXで追われる。空いた方へ逃げろ</div>
     </div>
     <div id="best" class="best"></div>
-    <div class="credit">🫪🫵 Twemoji © Twitter, Inc. and other contributors (CC-BY 4.0)</div>
+    <div class="credit">未対応端末の🫪🫵: Twemoji © Twitter, Inc. and other contributors (CC-BY 4.0)</div>
   </div>
 </div>
 
@@ -151,47 +151,73 @@ function hashStr(s){let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt
 function todayStr(){const d=new Date();return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`}
 let rng=Math.random,baseSeed=0;
 
-/* ================= 絵文字スプライト ================= */
-const SPR={};
-function spr(ch){
+/* ================= 絵文字（端末の絵文字を高解像度で描く） =================
+   元ツイートと同じく「その端末の絵文字」で見せる。
+   未対応の端末（🫪 は2025年追加）だけ Twemoji（© Twitter/jdecked, CC-BY 4.0）で代替する */
+const SPR={},SPR_RES=256;
+function spr(ch){ // 指など：余白込みの正方形スプライト
   if(SPR[ch])return SPR[ch];
-  const c=document.createElement('canvas');c.width=c.height=160;
-  const x=c.getContext('2d');x.font=`128px ${EF}`;x.textAlign='center';x.textBaseline='middle';x.fillText(ch,80,88);return SPR[ch]=c;
+  const c=document.createElement('canvas');c.width=c.height=SPR_RES*1.25;
+  const x=c.getContext('2d');x.font=`${SPR_RES}px ${EF}`;x.textAlign='center';x.textBaseline='middle';x.fillText(ch,c.width/2,c.width/2+SPR_RES*.05);return SPR[ch]=c;
 }
-/* ステッカー風フチ（黒→白→本体）。派手な背景でも指が埋もれないように */
-function sprO(ch){
-  const k='O'+ch;if(SPR[k])return SPR[k];
-  const base=spr(ch),c=document.createElement('canvas');c.width=c.height=160;const x=c.getContext('2d');
-  const sil=col=>{const s=document.createElement('canvas');s.width=s.height=160;const y=s.getContext('2d');y.drawImage(base,0,0);y.globalCompositeOperation='source-in';y.fillStyle=col;y.fillRect(0,0,160,160);return s};
-  const blk=sil('#000'),wht=sil('#fff');
-  for(let a=0;a<16;a++)x.drawImage(blk,Math.cos(a/16*TAU)*9,Math.sin(a/16*TAU)*9);
-  for(let a=0;a<16;a++)x.drawImage(wht,Math.cos(a/16*TAU)*5.5,Math.sin(a/16*TAU)*5.5);
-  x.drawImage(base,0,0);return SPR[k]=c;
+/* ステッカー風フチ（黒→白→本体）。派手な背景でも埋もれないように。返り値の _k は拡大率 */
+function outlined(base){
+  const n=base.width,pad=Math.ceil(n*.08),c=document.createElement('canvas');c.width=c.height=n+pad*2;const x=c.getContext('2d');
+  const sil=col=>{const s=document.createElement('canvas');s.width=s.height=n;const y=s.getContext('2d');y.drawImage(base,0,0);y.globalCompositeOperation='source-in';y.fillStyle=col;y.fillRect(0,0,n,n);return s};
+  const blk=sil('#000'),wht=sil('#fff'),o1=n*.055,o2=n*.033;
+  for(let a=0;a<16;a++)x.drawImage(blk,pad+Math.cos(a/16*TAU)*o1,pad+Math.sin(a/16*TAU)*o1);
+  for(let a=0;a<16;a++)x.drawImage(wht,pad+Math.cos(a/16*TAU)*o2,pad+Math.sin(a/16*TAU)*o2);
+  x.drawImage(base,pad,pad);c._k=c.width/n;return c;
 }
+function sprO(ch){const k='O'+ch;return SPR[k]||(SPR[k]=outlined(spr(ch)))}
 function drawEmo(ch,x,y,size,rot=0,alpha=1,outline=false){
-  const c=outline?sprO(ch):spr(ch),w=size*1.25;ctx.save();ctx.globalAlpha*=alpha;ctx.translate(x,y);if(rot)ctx.rotate(rot);
+  const c=outline?sprO(ch):spr(ch),w=size*1.25*(c._k||1);ctx.save();ctx.globalAlpha*=alpha;ctx.translate(x,y);if(rot)ctx.rotate(rot);
   ctx.drawImage(c,-w/2,-w/2,w,w);ctx.restore();
 }
-/* 🫪 と 🫵 は Twemoji（© Twitter/jdecked, CC-BY 4.0 https://github.com/jdecked/twemoji）を埋め込み、全端末で同じ顔にする */
-const TW_SVG={
-  face:'<svg width="512" height="512" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36"><path fill="#ffcc4d" d="M35.28 17.91c0 9.58-7.76 17.33-17.33 17.33S.61 27.47.61 17.91 8.37.57 17.94.57 35.27 8.33 35.27 17.9Z"/><path fill="#f5f8fa" d="M31.14 22.13c-3.47.9-6.79-1.96-7.96-6.47-1.13-4.35.02-8.92 4.08-9.73 3.24-.66 6.98 1.92 8.11 6.46s-.76 8.86-4.22 9.76ZM.52 12.38c1.13-4.54 4.86-7.11 8.11-6.46 4.06.82 5.21 5.38 4.08 9.73-1.17 4.51-4.49 7.37-7.96 6.47S-.59 16.84.53 12.37Z"/><path fill="#292f33" d="M32.07 17.22c-1.54.59-3.29-.58-4-2.51-.78-2.11-.22-4.21 1.29-4.72 1.63-.55 3.57.56 4.2 2.57s.37 3.95-1.49 4.66M2.3 12.56c.63-2.01 2.58-3.12 4.2-2.57 1.51.51 2.07 2.62 1.29 4.72-.71 1.93-2.47 3.11-4 2.51-1.86-.72-2.12-2.66-1.49-4.66"/><path fill="#664500" d="M22.31 31.61c-1.43.22-2.81.27-4.43.26-1.63 0-2.8-.11-4.13-.32-.73-.11-1.27-.59-1.26-1.51 0-.75.5-1.36 1.28-1.34 1.07.03 2.65.19 4.21.19s3.25-.11 4.35-.18c.8-.05 1.27.57 1.3 1.38.03.98-.58 1.4-1.33 1.52Z"/></svg>',
-  point:'<svg width="512" height="512" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36" xml:space="preserve"><path fill="#FFDC5D" d="M4 18.406c0 .39-.091.775-.265 1.124l-1.376 2.752a4.646 4.646 0 0 0 .586 5.051l2.209 2.651a4.64 4.64 0 0 0 2.1 1.433l6.277 2.092a4.643 4.643 0 0 0 2.938 0l2.328-.776a4.644 4.644 0 0 0 2.938-2.938L22 29s4.637-.971 4.281-2.676C26.281 26.324 28 28 30 26c1.067-1.067 2.134-2.419 2.897-3.448a4.646 4.646 0 0 0 .879-3.343l-.278-2.223a6.373 6.373 0 0 0-4.309-5.256L27 11l-3.071-2.628c.604-3.273-1.159-5.437-3.935-5.702-1.709-.163-4.741.595-4.863 3.545a.98.98 0 0 1-.732.907L11 8l-2.086.834A4.636 4.636 0 0 0 6 13.139c0 .561-.166 1.11-.478 1.578L4.78 15.83A4.64 4.64 0 0 0 4 18.406z"/><path d="M21.901 28.977c.038 0 .07.018.107.022L22 29l-.266.797a4.62 4.62 0 0 1-.6 1.18H19.62a13.76 13.76 0 0 1-8.951-3.312l-3.418-2.929a.999.999 0 1 1 1.301-1.518l3.418 2.929a11.766 11.766 0 0 0 7.65 2.83h2.281zm4.546-13.872a1 1 0 0 0-1.342.447l-1 2-.013.028-1.96-.795a8.315 8.315 0 0 1-2.767-1.834l-2.659-2.659a.999.999 0 1 0-1.414 1.414l2.659 2.659a10.305 10.305 0 0 0 3.429 2.273l1.957.794c-.8 2.435-.573 4.309-.055 5.627l-2.313-.619a11.776 11.776 0 0 1-5.112-2.999l-4.65-4.65a.999.999 0 1 0-1.414 1.414l4.65 4.65a13.797 13.797 0 0 0 5.997 3.514l4.408 1.178a1.14 1.14 0 0 0 1.277-.501 1.116 1.116 0 0 0-.136-1.357c-.675-.728-1.986-2.747-.478-6.4.007-.016.02-.028.026-.044.006-.015.003-.03.008-.045.103-.244.219-.496.348-.754l1-2a.998.998 0 0 0-.446-1.341zm3.377 5.39c-.784-.61-1.705.573-.922 1.184 1.458 1.136 1.119 2.814 2.152 2.814 1.674 0 .105-2.958-1.23-3.998zM17.35 6.031c1.536-.751 3.074-.775 4.736.013.723.341.567-2.022-2.356-2.073-2.903-.078-3.12 2.418-2.38 2.06zm2.06 4.679c2.963.122 4.646-1.791 4.38-3.125-.044-.361-.675-.348-.738-.118-.426 1.559-3.573 2.456-5.686 1.104-1.614-1.012-.985-1.702-1.654-1.716-1.235-.022.121 3.823 3.698 3.855z" fill="#EF9645"/></svg>'};
-TW_SVG.faceH=TW_SVG.face.replace('#ffcc4d','#9c8f5e').replace('#f5f8fa','#fffbe8').replace('#292f33','#000').replace('#664500','#2a0000');
-const TW={};
-for(const k in TW_SVG){const i=new Image();i.onload=()=>{const c=document.createElement('canvas');c.width=c.height=512;c.getContext('2d').drawImage(i,0,0,512,512);TW[k]=c};i.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(TW_SVG[k])}
-function drawTw(k,x,y,size,rot=0,alpha=1){
-  const c=TW[k];if(!c){drawEmo(k==='point'?'🫵':'🫪',x,y,size*.8,rot,alpha);return}
-  ctx.save();ctx.globalAlpha*=alpha;ctx.translate(x,y);if(rot)ctx.rotate(rot);ctx.drawImage(c,-size/2,-size/2,size,size);ctx.restore();
+/* 顔と🫵：グリフの実寸で切り抜いた高解像度画像（size＝見た目の直径）。未対応なら null */
+let TOFU=null;
+function cropGlyph(ch,needColor=true){
+  const S=480,c=document.createElement('canvas');c.width=c.height=Math.round(S*1.4);const x=c.getContext('2d',{willReadFrequently:true});
+  x.font=`${S}px ${EF}`;x.textAlign='center';x.textBaseline='middle';x.fillText(ch,c.width/2,c.width/2);
+  const d=x.getImageData(0,0,c.width,c.height).data;let x0=1e9,y0=1e9,x1=-1,y1=-1,col=0,tot=0;
+  for(let y=0;y<c.height;y+=2)for(let xx=0;xx<c.width;xx+=2){const i=(y*c.width+xx)*4;if(d[i+3]>40){tot++;if(xx<x0)x0=xx;if(xx>x1)x1=xx;if(y<y0)y0=y;if(y>y1)y1=y;if(Math.max(d[i],d[i+1],d[i+2])-Math.min(d[i],d[i+1],d[i+2])>40)col++}}
+  const sig=`${tot},${x0},${x1},${y0},${y1}`;
+  if(ch==='\u{10FFFF}')return sig;
+  if(TOFU===null)TOFU=cropGlyph('\u{10FFFF}');
+  if(tot<200||sig===TOFU||(needColor&&col<tot*.15))return null; // 豆腐・モノクロ表示＝未対応
+  const s=Math.max(x1-x0,y1-y0)+6,cx=(x0+x1)/2,cy=(y0+y1)/2,o=document.createElement('canvas');o.width=o.height=s;
+  o.getContext('2d').drawImage(c,cx-s/2,cy-s/2,s,s,0,0,s,s);return o;
+}
+/* 恐怖用：顔色を青ざめさせる（白目は残す） */
+function sicken(src){
+  const c=document.createElement('canvas');c.width=src.width;c.height=src.height;const x=c.getContext('2d');x.drawImage(src,0,0);
+  const im=x.getImageData(0,0,c.width,c.height),d=im.data;
+  for(let i=0;i<d.length;i+=4){const l=.3*d[i]+.59*d[i+1]+.11*d[i+2];if(l>215)continue;d[i]=l*.72+18;d[i+1]=l*.7+14;d[i+2]=l*.45}
+  x.putImageData(im,0,0);return c;
+}
+const TW_SVG={face:'<svg width="512" height="512" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36"><path fill="#ffcc4d" d="M35.28 17.91c0 9.58-7.76 17.33-17.33 17.33S.61 27.47.61 17.91 8.37.57 17.94.57 35.27 8.33 35.27 17.9Z"/><path fill="#f5f8fa" d="M31.14 22.13c-3.47.9-6.79-1.96-7.96-6.47-1.13-4.35.02-8.92 4.08-9.73 3.24-.66 6.98 1.92 8.11 6.46s-.76 8.86-4.22 9.76ZM.52 12.38c1.13-4.54 4.86-7.11 8.11-6.46 4.06.82 5.21 5.38 4.08 9.73-1.17 4.51-4.49 7.37-7.96 6.47S-.59 16.84.53 12.37Z"/><path fill="#292f33" d="M32.07 17.22c-1.54.59-3.29-.58-4-2.51-.78-2.11-.22-4.21 1.29-4.72 1.63-.55 3.57.56 4.2 2.57s.37 3.95-1.49 4.66M2.3 12.56c.63-2.01 2.58-3.12 4.2-2.57 1.51.51 2.07 2.62 1.29 4.72-.71 1.93-2.47 3.11-4 2.51-1.86-.72-2.12-2.66-1.49-4.66"/><path fill="#664500" d="M22.31 31.61c-1.43.22-2.81.27-4.43.26-1.63 0-2.8-.11-4.13-.32-.73-.11-1.27-.59-1.26-1.51 0-.75.5-1.36 1.28-1.34 1.07.03 2.65.19 4.21.19s3.25-.11 4.35-.18c.8-.05 1.27.57 1.3 1.38.03.98-.58 1.4-1.33 1.52Z"/></svg>',point:'<svg width="512" height="512" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36" xml:space="preserve"><path fill="#FFDC5D" d="M4 18.406c0 .39-.091.775-.265 1.124l-1.376 2.752a4.646 4.646 0 0 0 .586 5.051l2.209 2.651a4.64 4.64 0 0 0 2.1 1.433l6.277 2.092a4.643 4.643 0 0 0 2.938 0l2.328-.776a4.644 4.644 0 0 0 2.938-2.938L22 29s4.637-.971 4.281-2.676C26.281 26.324 28 28 30 26c1.067-1.067 2.134-2.419 2.897-3.448a4.646 4.646 0 0 0 .879-3.343l-.278-2.223a6.373 6.373 0 0 0-4.309-5.256L27 11l-3.071-2.628c.604-3.273-1.159-5.437-3.935-5.702-1.709-.163-4.741.595-4.863 3.545a.98.98 0 0 1-.732.907L11 8l-2.086.834A4.636 4.636 0 0 0 6 13.139c0 .561-.166 1.11-.478 1.578L4.78 15.83A4.64 4.64 0 0 0 4 18.406z"/><path d="M21.901 28.977c.038 0 .07.018.107.022L22 29l-.266.797a4.62 4.62 0 0 1-.6 1.18H19.62a13.76 13.76 0 0 1-8.951-3.312l-3.418-2.929a.999.999 0 1 1 1.301-1.518l3.418 2.929a11.766 11.766 0 0 0 7.65 2.83h2.281zm4.546-13.872a1 1 0 0 0-1.342.447l-1 2-.013.028-1.96-.795a8.315 8.315 0 0 1-2.767-1.834l-2.659-2.659a.999.999 0 1 0-1.414 1.414l2.659 2.659a10.305 10.305 0 0 0 3.429 2.273l1.957.794c-.8 2.435-.573 4.309-.055 5.627l-2.313-.619a11.776 11.776 0 0 1-5.112-2.999l-4.65-4.65a.999.999 0 1 0-1.414 1.414l4.65 4.65a13.797 13.797 0 0 0 5.997 3.514l4.408 1.178a1.14 1.14 0 0 0 1.277-.501 1.116 1.116 0 0 0-.136-1.357c-.675-.728-1.986-2.747-.478-6.4.007-.016.02-.028.026-.044.006-.015.003-.03.008-.045.103-.244.219-.496.348-.754l1-2a.998.998 0 0 0-.446-1.341zm3.377 5.39c-.784-.61-1.705.573-.922 1.184 1.458 1.136 1.119 2.814 2.152 2.814 1.674 0 .105-2.958-1.23-3.998zM17.35 6.031c1.536-.751 3.074-.775 4.736.013.723.341.567-2.022-2.356-2.073-2.903-.078-3.12 2.418-2.38 2.06zm2.06 4.679c2.963.122 4.646-1.791 4.38-3.125-.044-.361-.675-.348-.738-.118-.426 1.559-3.573 2.456-5.686 1.104-1.614-1.012-.985-1.702-1.654-1.716-1.235-.022.121 3.823 3.698 3.855z" fill="#EF9645"/></svg>'};
+const IMG={},IMG_CH={face:'🫪',point:'🫵'};
+function setImg(k,c){IMG[k]=c;if(k==='face')IMG.faceH=sicken(c)}
+function initImgs(){
+  for(const k in IMG_CH){const c=cropGlyph(IMG_CH[k]);if(c){setImg(k,c);continue}
+    const i=new Image();i.onload=()=>{const c=document.createElement('canvas');c.width=c.height=512;c.getContext('2d').drawImage(i,0,0,512,512);setImg(k,c)};
+    i.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(TW_SVG[k])}
+  for(const s of SKINS)IMG['skin_'+s.id]=cropGlyph(s.e,false);
+}
+function drawImg(k,x,y,size,rot=0,alpha=1,outline=false){
+  let c=IMG[k];if(!c){drawEmo(IMG_CH[k]||'🫪',x,y,size*.8,rot,alpha,outline);return}
+  if(outline)c=IMG['O'+k]||(IMG['O'+k]=outlined(c));const w=size*(c._k||1);
+  ctx.save();ctx.globalAlpha*=alpha;ctx.translate(x,y);if(rot)ctx.rotate(rot);ctx.drawImage(c,-w/2,-w/2,w,w);ctx.restore();
 }
 /* 🫪 の不気味な揺れ。glitch>0 で横ずれスライスが入る */
 function faceHorror(x,y,r,k='face',glitch=0){
-  const t=G.t,sz=r*2.15*(1+.025*Math.sin(t*.011)),jx=(Math.random()-.5)*r*.05*(1+glitch*3),jy=(Math.random()-.5)*r*.05*(1+glitch*3);
-  if(glitch>0&&TW[k]&&Math.random()<.35+glitch*.5){
-    const c=TW[k],n=7;for(let i=0;i<n;i++){const sy=i/n*512,sh=512/n,off=(Math.random()-.5)*r*glitch*(Math.random()<.4?1.6:.3);
-      ctx.drawImage(c,0,sy,512,sh,x-sz/2+jx+off,y-sz/2+jy+i*sz/n,sz,sz/n+1)}
+  const t=G.t,sz=r*2.1*(1+.025*Math.sin(t*.011)),jx=(Math.random()-.5)*r*.05*(1+glitch*3),jy=(Math.random()-.5)*r*.05*(1+glitch*3);
+  if(glitch>0&&IMG[k]&&Math.random()<.35+glitch*.5){
+    const c=IMG[k],N=c.width,n=7;for(let i=0;i<n;i++){const sy=i/n*N,sh=N/n,off=(Math.random()-.5)*r*glitch*(Math.random()<.4?1.6:.3);
+      ctx.drawImage(c,0,sy,N,sh,x-sz/2+jx+off,y-sz/2+jy+i*sz/n,sz,sz/n+1)}
     return;
   }
-  drawTw(k,x+jx,y+jy,sz,Math.sin(t*.007)*.04);
+  drawImg(k,x+jx,y+jy,sz,Math.sin(t*.007)*.04);
 }
 
 /* =========================================================
@@ -519,18 +545,7 @@ function gtext(s,x,y,size,col='#fff',gl=1,align='center'){
 const hue=(o=0,l=60)=>`hsl(${(G.t*.25+o)%360},100%,${l}%)`;
 
 /* ================= 顔 ================= */
-function faceGrin(x,y,r){
-  const g=ctx.createRadialGradient(x-r*.3,y-r*.4,r*.1,x,y,r);g.addColorStop(0,'#fff27a');g.addColorStop(.7,'#ffcc1f');g.addColorStop(1,'#f39c00');
-  ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,y,r,0,TAU);ctx.fill();ctx.lineWidth=r*.06;ctx.strokeStyle='#6b3f00';ctx.stroke();
-  ctx.fillStyle='rgba(255,90,110,.45)';for(const s of[-1,1]){ctx.beginPath();ctx.ellipse(x+s*r*.58,y+r*.18,r*.16,r*.09,0,0,TAU);ctx.fill()}
-  ctx.lineWidth=r*.11;ctx.lineCap='round';ctx.strokeStyle='#3b2200';
-  for(const s of[-1,1]){ctx.beginPath();ctx.arc(x+s*r*.36,y-r*.1,r*.17,PI*1.12,PI*1.88);ctx.stroke()}
-  const mouth=()=>{ctx.beginPath();ctx.moveTo(x-r*.62,y+r*.14);ctx.quadraticCurveTo(x,y+r*.26,x+r*.62,y+r*.14);ctx.quadraticCurveTo(x+r*.48,y+r*.8,x,y+r*.8);ctx.quadraticCurveTo(x-r*.48,y+r*.8,x-r*.62,y+r*.14);ctx.closePath()};
-  mouth();ctx.fillStyle='#fff';ctx.fill();ctx.save();ctx.clip();ctx.strokeStyle='#bbb';ctx.lineWidth=r*.035;ctx.beginPath();ctx.moveTo(x-r,y+r*.46);ctx.lineTo(x+r,y+r*.46);
-  for(let i=-2;i<=2;i++){ctx.moveTo(x+i*r*.2,y);ctx.lineTo(x+i*r*.2,y+r)}ctx.stroke();ctx.restore();
-  mouth();ctx.lineWidth=r*.06;ctx.strokeStyle='#3b2200';ctx.stroke();
-}
-function faceSkin(x,y,r){if(G.skin==='grin')faceGrin(x,y,r);else drawEmo(skinE(),x,y,r*1.62)}
+function faceSkin(x,y,r){const c=IMG['skin_'+G.skin];if(c){const w=r*2.1;ctx.drawImage(c,x-w/2,y-w/2,w,w)}else drawEmo(skinE(),x,y,r*1.62)}
 
 /* ================= 群衆 ================= */
 function drawCrowd(mode,reveal=1,alpha=1){
@@ -617,7 +632,7 @@ function drawPrompt(){
     ctx.fillStyle=gg;ctx.beginPath();ctx.arc(sx,sy,gr,0,TAU);ctx.fill();
     const sc=lerp(1.6,1.2,ap)*(active?1:.8);
     if(p.type==='rev'){ctx.fillStyle='#e8002d';ctx.beginPath();ctx.arc(sx,sy,R*.95,0,TAU);ctx.fill();ctx.lineWidth=U*.9;ctx.strokeStyle='#fff';ctx.stroke()}
-    if(p.type==='trap')drawTw('point',sx,sy,R*1.5*sc);else drawEmo('👆',sx,sy,R*1.25*sc,d*PI/2,active?1:.55,true);
+    if(p.type==='trap')drawImg('point',sx,sy,R*1.55*sc,0,1,true);else drawEmo('👆',sx,sy,R*1.25*sc,d*PI/2,active?1:.55,true);
     if(p.type==='rev')otext('逆',sx+R*.75,sy-R*.75,U*7.5,'#fff','#e8002d');
     if(p.type==='dbl')otext(String(i+1),sx+R*.75,sy-R*.75,U*7,'#fff','#0050ff');
     if(p.type==='dir'||(p.type==='dbl'&&active))for(let j=0;j<3;j++){
@@ -891,7 +906,7 @@ function drawRecog(){
   const k=e-260;bgDark();drawCrowd('esc',clamp(k/600));
   faceHorror(CX,CY,R,'face',k<200?1:0);
   const s=eOut(clamp(k/160)),dist=lerp(R*6,R*2.15,s);
-  for(let i=0;i<4;i++)drawTw('point',CX+DIRS[i][0]*dist,CY+DIRS[i][1]*dist,R*1.5);
+  for(let i=0;i<4;i++)drawImg('point',CX+DIRS[i][0]*dist,CY+DIRS[i][1]*dist,R*1.5);
   const fs=fitSize('まずい“認識”された',W*.9,U*11);
   gtext('まずい“認識”された',CX,CY+R*3.5,fs,'#fff',1.4);
   gtext(`認識者 ${fmt(G.crowd)}人`,CX,SAFE+U*10,U*6,'#ff3550',.6);
@@ -906,10 +921,10 @@ function escFingers(){
     const jit=R*.03*(1+prog*4),jx=(Math.random()-.5)*jit,jy=(Math.random()-.5)*jit;
     if(k===w.dir){
       if(w.type==='gap')continue;
-      if(w.type==='late'&&!pre){const rk=clamp((G.t-w.open)/150);if(rk>=1)continue;const d2=lerp(dist,FAR*2.2,eOut(rk));drawTw('point',CX+DIRS[k][0]*d2,CY+DIRS[k][1]*d2,sz*1.15,0,1-rk);continue}
-      if(w.type==='away'){const d2=lerp(FAR+R*2,FAR,ap);drawEmo('👆',CX+DIRS[k][0]*d2+jx,CY+DIRS[k][1]*d2+jy,sz*.95,k*PI/2,1,true);continue}
+      if(w.type==='late'&&!pre){const rk=clamp((G.t-w.open)/150);if(rk>=1)continue;const d2=lerp(dist,FAR*2.2,eOut(rk));drawEmo('👆',CX+DIRS[k][0]*d2,CY+DIRS[k][1]*d2,sz,k*PI/2+PI,1-rk);continue}
+      if(w.type==='away'){const d2=lerp(FAR+R*2,FAR,ap);drawEmo('👆',CX+DIRS[k][0]*d2+jx,CY+DIRS[k][1]*d2+jy,sz,k*PI/2);continue}
     }
-    drawTw('point',CX+DIRS[k][0]*dist+jx,CY+DIRS[k][1]*dist+jy,sz*1.15);
+    drawEmo('👆',CX+DIRS[k][0]*dist+jx,CY+DIRS[k][1]*dist+jy,sz,k*PI/2+PI);
   }
   return prog;
 }
@@ -952,7 +967,7 @@ function drawDead(){
   ctx.fillStyle='#000';ctx.fillRect(-20,-20,W+40,H+40);
   if(e<DT.th[0]){ // 捕まった瞬間：🫵が🫪に突き刺さる
     bgDark();drawCrowd('esc',1,.5);const k=eIn(clamp(e/150));faceHorror(CX,CY,R,'face',1);
-    const dist=lerp(G.deathDist,R*1.2,k);for(let i=0;i<4;i++)drawTw('point',CX+DIRS[i][0]*dist,CY+DIRS[i][1]*dist,R*1.5*(1+k*.3));
+    const dist=lerp(G.deathDist,R*1.2,k);for(let i=0;i<4;i++)drawImg('point',CX+DIRS[i][0]*dist,CY+DIRS[i][1]*dist,R*1.5*(1+k*.3));
     scanlines(.3);return;
   }
   if(e<DT.scare){
@@ -971,7 +986,7 @@ function drawDead(){
       const ghosts=sp&&wv>6?3:0;
       for(let gh=ghosts;gh>=0;gh--){
         const a=ang-gh*wv*.018+[0,PI/2,PI,PI*1.5][k];
-        drawTw('point',CX+Math.sin(a)*d,CY-Math.cos(a)*d,R*1.5*sc,e>=DT.spin0?a:0,(gh?.22:1)*fade);
+        drawImg('point',CX+Math.sin(a)*d,CY-Math.cos(a)*d,R*1.5*sc,e>=DT.spin0?a:0,(gh?.22:1)*fade);
       }
     }
     if(stopped){const gl=ctx.createRadialGradient(CX,CY,R*.6,CX,CY,R*2);gl.addColorStop(0,'rgba(255,0,30,.35)');gl.addColorStop(1,'rgba(255,0,30,0)');ctx.fillStyle=gl;ctx.beginPath();ctx.arc(CX,CY,R*2,0,TAU);ctx.fill()}
@@ -1098,7 +1113,7 @@ function toTitle(){
 
 /* ================= 起動 ================= */
 addEventListener('resize',resize);
-['👆','🫵','👁️',...SKINS.map(s=>s.e)].forEach(spr);
+['👆','👁️'].forEach(spr);initImgs();
 resize();toTitle();requestAnimationFrame(frame);
 </script>
 </body>
