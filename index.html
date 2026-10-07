@@ -765,28 +765,30 @@ function updRecog(){
    👁️ 視線   … 目が見開いている間は長押しで息を殺して隠れる（長押し中もスワイプ可）
    失敗するたびに🫵が1本ずつ周りに並び、4本そろう（🫵🫪🫵の完成）と認識完了 */
 const CH={ev:[],slots:[],bpm:150,b:400,ac0:0,t0:0,hold:false,anchor:null,combo:0,len:0,lastBeat:-1,pulse:0,dead:0,miss:null,cams:[]};
-const WIN={early:160,late:120,perf:60};
+const WIN={early:175,late:135,perf:65};
 const SLOT_ORDER=[0,3,1,2];// 上→左→右→下（ツイートの並び）
-function chP(){const r=G.round;return{bpm:Math.min(136+r*10,196),bars:Math.min(6+r,12)}}
+/* R1=BPM120 → 1ラウンドごとに+8（最大176）。予兆から操作まで最低0.85秒は確保する */
+function chP(){const r=G.round,bpm=Math.min(112+r*8,176),b=60000/bpm;return{bpm,bars:Math.min(5+r,11),lead:Math.max(2,Math.ceil(850/b)),minGap:Math.max(1,Math.ceil(430/b))}}
 /* 判定の時計は音の時計。端末の出力遅延ぶん引いて「耳に届いた拍」に合わせる */
 function ET(){return AC&&M.mode==='esc'?(now()-CH.ac0-(AC.outputLatency||AC.baseLatency||0))*1000:G.t-CH.t0}
 function camPos(q){const a=PI/4+q*PI/2,rr=Math.min(W,H)*.36;return[CX+Math.cos(a)*rr,CY+Math.sin(a)*rr*1.05]}
 function genChase(){
-  const r=G.round,P=chP(),beats=P.bars*4,ev=[];let k=4,lastCam=-1;
+  const r=G.round,P=chP(),beats=P.bars*4,L=P.lead,ev=[];let k=Math.max(4,L+2),lastCam=-1;
+  const gap=short=>Math.max(P.minGap,short?1:2);
   while(k<beats){
     const bar=Math.floor(k/4);let pool=['hand','hand','cam','eye'];
     if(r===1)pool=bar<2?['hand']:bar<3?['hand','cam']:['hand','hand','cam','eye'];
     const t=pool[rng()*pool.length|0];
     if(t==='hand'){
-      const dir=rng()*4|0;ev.push({type:'hand',dir,beat:k,cue:k-2});
-      if(r>=3&&rng()<.3)ev.push({type:'hand',dir:(dir+1+(rng()*3|0))%4,beat:k+.5,cue:k-1.5});
-      k+=(r>=2&&rng()<.45)?1:2;
+      const dir=rng()*4|0;ev.push({type:'hand',dir,beat:k,cue:k-L});
+      if(r>=4&&rng()<.25){ev.push({type:'hand',dir:(dir+1+(rng()*3|0))%4,beat:k+.5,cue:k+.5-L});k+=2;continue} // 2連続の指差し
+      k+=gap(r>=2&&rng()<(r>=3?.4:.2));
     }else if(t==='cam'){
-      let q;do{q=rng()*4|0}while(q===lastCam);lastCam=q;ev.push({type:'cam',q,beat:k,cue:k-2});k+=(r>=3&&rng()<.4)?1:2;
+      let q;do{q=rng()*4|0}while(q===lastCam);lastCam=q;ev.push({type:'cam',q,beat:k,cue:k-L});k+=gap(r>=3&&rng()<.35);
     }else{
-      const len=1+(rng()*Math.min(3,1+r/2)|0);ev.push({type:'eye',beat:k,end:k+len,cue:k-2});
-      if(r>=4&&len>=2&&rng()<.6)ev.push({type:'hand',dir:rng()*4|0,beat:k+len-1,cue:k+len-3});
-      k+=len+2;
+      const len=1+(rng()*Math.min(3,r<=2?1:1+r/2)|0);ev.push({type:'eye',beat:k,end:k+len,cue:k-L});
+      if(r>=5&&len>=2&&rng()<.6)ev.push({type:'hand',dir:rng()*4|0,beat:k+len-1,cue:k+len-1-L}); // 長押ししながらスワイプ
+      k+=len+Math.max(2,P.minGap);
     }
   }
   ev.sort((a,b)=>a.beat-b.beat);
@@ -819,7 +821,7 @@ function chCue(v){
   if(!SEEN['ch_'+v.type]){markSeen('ch_'+v.type);banner({hand:'🫵 迫ってくる方へスワイプで払え‼️',cam:'📸 輪が重なった瞬間にタップ‼️',eye:'👁️ 目が開いてる間は長押しで隠れろ‼️'}[v.type],2000)}
   if(!A)return;const at=b=>CH.ac0+b*CH.b/1000;
   if(v.type==='hand')S.cueHand(at(v.cue),at(v.beat),v.dir);
-  else if(v.type==='cam'){S.blip(at(v.cue),88,.07,'sine',.05);S.blip(at(v.cue+1),88,.07,'sine',.05)}
+  else if(v.type==='cam'){S.blip(at(v.beat-2),88,.07,'sine',.05);S.blip(at(v.beat-1),88,.07,'sine',.05)}
   else S.cueEye(at(v.cue),at(v.beat),at(v.end));
 }
 function chTap(){
@@ -845,7 +847,7 @@ function chGood(v,perfect){
   pop(lbl,CX,CY-R*3.5,U*(perfect?5.6:4.6),'#fff',perfect?'#ff2d95':'#333','j');
   if(v.type==='hand'){const d=DIRS[v.dir];burst(CX+d[0]*R*2.2,CY+d[1]*R*2.2,14,'#fff',U*.4)}
   if(v.type==='cam'){const[x,y]=camPos(v.q);burst(x,y,10,'#fff',U*.3);v.flash=G.t}
-  if(CH.combo>0&&CH.combo%10===0&&CH.slots.length){CH.slots.pop();pop('振り払った‼️',CX,CY+R*3.6,U*7,'#fff','#00a060');snd(t=>{S.stab(t,[69,72,76,81],.08);S.crash(t,.15)})}
+  if(CH.combo>0&&CH.combo%8===0&&CH.slots.length){CH.slots.pop();pop('持ち直した‼️ 認識度ダウン',CX,CY+R*3.6,U*6,'#fff','#00a060');snd(t=>{S.stab(t,[69,72,76,81],.08);S.crash(t,.15)})}
   checkSkins();
 }
 function chMiss(v,why){
@@ -1032,17 +1034,18 @@ function drawEsc(){
   bgDark();drawCrowd('esc',1,.28);
   // 懐中電灯の明かり
   const lg=ctx.createRadialGradient(CX,CY,R*1.2,CX,CY,Math.max(W,H)*.62);lg.addColorStop(0,'rgba(0,0,0,0)');lg.addColorStop(1,'rgba(0,0,0,.82)');ctx.fillStyle=lg;ctx.fillRect(-20,-20,W+40,H+40);
+  if(CH.slots.length){ctx.fillStyle=`rgba(120,0,15,${.06*CH.slots.length+.04*CH.slots.length*Math.sin(G.t*.008)})`;ctx.fillRect(-20,-20,W+40,H+40);vignette(.2*CH.slots.length,'60,0,8')}
   const staring=CH.ev.some(v=>v.type==='eye'&&e>=v.beat*b&&e<v.end*b);
   if(staring){ctx.fillStyle=`rgba(160,0,20,${.12+.06*Math.sin(G.t*.03)})`;ctx.fillRect(-20,-20,W+40,H+40)}
   // 拍のリング（タイミングの手がかり）
   ctx.lineWidth=U*.7;ctx.strokeStyle=`rgba(255,255,255,${.08+CH.pulse*.3})`;ctx.beginPath();ctx.arc(CX,CY,R*1.3+CH.pulse*R*.18,0,TAU);ctx.stroke();
   for(const v of CH.ev)if(v.type==='eye'&&e>=v.cue*b-50&&e<v.end*b+200)drawEye(v,e);
-  // 並んだ🫵（失敗の数）
-  for(const sl of CH.slots){const d=DIRS[sl],jit=(Math.random()-.5)*U*.6,born=CH.miss&&CH.miss.sl===sl?eOut(clamp((G.t-CH.miss.t)/120)):1;
+  // 🫵🫪🫵の完成形は「認識完了」の瞬間だけ見せる（プレイ中は払う指と紛らわしいので出さない）
+  if(CH.dead)for(const sl of CH.slots){const d=DIRS[sl],jit=(Math.random()-.5)*U*.6,born=CH.miss&&CH.miss.sl===sl?eOut(clamp((G.t-CH.miss.t)/120)):1;
     drawImg('point',CX+d[0]*R*2.15*lerp(2.2,1,born)+jit,CY+d[1]*R*2.15*lerp(2.2,1,born)+jit,R*1.45*lerp(1.8,1,born))}
   // 🫪（長押し中は闇に溶けて隠れる）
   const hide=CH.hold;ctx.save();ctx.globalAlpha=hide?.32:1;
-  faceHorror(CX,CY,R*(hide?.9:1),hide||CH.slots.length>=3?'faceH':'face',CH.miss&&G.t-CH.miss.t<250?1:0);ctx.restore();
+  faceHorror(CX,CY,R*(hide?.9:1),hide||CH.slots.length>=2?'faceH':'face',CH.miss&&G.t-CH.miss.t<250?1:CH.slots.length>=3?.15:0);ctx.restore();
   if(hide){ctx.font=`900 ${U*3.4}px ${JP}`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='rgba(255,255,255,.55)';ctx.fillText('息を殺している…',CX,CY+R*1.55)}
   // 迫る🫵
   for(const v of CH.ev){
@@ -1070,11 +1073,19 @@ function drawEsc(){
     gtext('認識完了',CX,CY+R*3.3,fitSize('認識完了',W*.8,U*12),'#ff1744',1.4)}
   scanlines(.2);grain(.05);
   // HUD
-  gtext(`認識者 ${fmt(G.crowd)}人`,CX,SAFE+U*7,U*5.4,'#ff3550',.4);
+  gtext(`認識者 ${fmt(G.crowd)}人`,CX,SAFE+U*4.2,U*4.4,'#ff3550',.3);
   const prog=clamp(e/(CH.len*b)),bw=W*.7,by=H-U*9;
   ctx.fillStyle='rgba(255,255,255,.14)';rr(CX-bw/2,by,bw,U*1.8,U);ctx.fill();ctx.fillStyle='#ff3550';rr(CX-bw/2,by,Math.max(U*1.8,bw*prog),U*1.8,U);ctx.fill();
   ctx.font=`900 ${U*3.2}px ${JP}`;ctx.textAlign='center';ctx.fillStyle='rgba(255,255,255,.7)';ctx.fillText(`逃げ切りまで ${Math.round((1-prog)*100)}%`,CX,by-U*3);
-  const lives=4-CH.slots.length;ctx.fillText('認識まで '+'🫵'.repeat(CH.slots.length)+'・'.repeat(lives),CX,by-U*8);
+  { // 認識度メーター
+    const n=CH.slots.length,bw2=U*11,gap=U*1.6,tw=bw2*4+gap*3,x0=CX-tw/2,y0=SAFE+U*12,bh=U*6;
+    ctx.font=`900 ${U*3}px ${JP}`;ctx.textAlign='center';ctx.fillStyle='rgba(255,255,255,.65)';ctx.fillText('認識度',CX,y0-U*2.6);
+    for(let i=0;i<4;i++){const x=x0+i*(bw2+gap),on=i<n,fresh=on&&i===n-1&&CH.miss&&G.t-CH.miss.t<400;
+      ctx.fillStyle=on?(fresh&&Math.sin(G.t*.06)>0?'#fff':'#c4001f'):'rgba(255,255,255,.08)';rr(x,y0,bw2,bh,U*1.2);ctx.fill();
+      ctx.lineWidth=U*.4;ctx.strokeStyle=on?'#ff4d6a':'rgba(255,255,255,.3)';ctx.stroke();
+      if(on)drawImg('point',x+bw2/2,y0+bh/2,bh*.9)}
+    if(n===3){ctx.font=`900 ${U*3.2}px ${JP}`;ctx.fillStyle=Math.sin(G.t*.02)>0?'#ff4d6a':'#fff';ctx.fillText('あと1回で認識される',CX,y0+bh+U*3.4)}
+  }
   if(CH.combo>=2)otext(`${CH.combo} COMBO`,CX,CY+R*3.4,U*6,'#fff','#000');
 }
 function drawShook(){
