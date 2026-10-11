@@ -671,7 +671,8 @@ function startWindmill(){
   if(G.round===1&&!SEEN.wm){markSeen('wm');banner('光った指の方へフリック‼️',1800)}
   else banner(G.round===1?'見て‼️風車だよ‼️':`ROUND ${G.round}　見て‼️`,1000);
 }
-function wmP(){const r=G.round;return{win:Math.max(360,1000*Math.pow(.84,r-1)),trap:Math.min(.24,.08+.035*(r-1)),rev:r>=3?Math.min(.26,.1+.04*(r-3)):0,dbl:r>=2?Math.min(.22,.08+.035*(r-2)):0,need:12+3*r}}
+/* 操作の猶予: R1=1000ms から1ラウンドごとに8%短く、700ms で頭打ち（見て・判断して・フリックする人間の限界を下回らない） */
+function wmP(){const r=G.round;return{win:Math.max(700,1000*Math.pow(.92,r-1)),trap:Math.min(.24,.08+.035*(r-1)),rev:r>=3?Math.min(.26,.1+.04*(r-3)):0,dbl:r>=2?Math.min(.22,.08+.035*(r-2)):0,need:12+3*r}}
 function newPrompt(){
   const p=wmP(),prev=G.prev;let type='dir';const x=rng();
   if(G.wmCount>=3||G.round>1){
@@ -681,6 +682,7 @@ function newPrompt(){
   }
   let win=p.win;if(G.round===1&&G.wmCount<3)win=1800;
   if(type==='dbl')win*=1.7;
+  if(type==='rev')win*=1.3; // 方向を頭の中で反転させるぶん長く
   if(type!=='dir'&&!SEEN[type]){markSeen(type);win*=2;banner({trap:'🫵 は触るな‼️ 待て',rev:'赤は逆にフリック‼️',dbl:'1→2の順にフリック‼️'}[type],1600)}
   const dir=rng()*4|0;
   G.prompt=G.prev={type,dir,dirs:[dir,(dir+1+(rng()*3|0))%4],idx:0,t0:G.t,win};G.wmCount++;
@@ -781,7 +783,7 @@ function genChase(){
     const t=pool[rng()*pool.length|0];
     if(t==='hand'){
       const dir=rng()*4|0;ev.push({type:'hand',dir,beat:k,cue:k-L});
-      if(r>=4&&rng()<.25){ev.push({type:'hand',dir:(dir+1+(rng()*3|0))%4,beat:k+.5,cue:k+.5-L});k+=2;continue} // 2連続の指差し
+      if(r>=4&&rng()<.25){const off=60000/P.bpm*.5>=250?.5:1;ev.push({type:'hand',dir:(dir+1+(rng()*3|0))%4,beat:k+off,cue:k+off-L});k+=Math.max(2,off+P.minGap);continue} // 2連続の指差し（間隔は最低250ms）
       k+=gap(r>=2&&rng()<(r>=3?.4:.2));
     }else if(t==='cam'){
       let q;do{q=rng()*4|0}while(q===lastCam);lastCam=q;ev.push({type:'cam',q,beat:k,cue:k-L});k+=gap(r>=3&&rng()<.35);
