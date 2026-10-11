@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="76" viewBox="0 0 320 76">
+  <rect x="4" y="8" width="312" height="64" rx="32" fill="#111"/>
+  <rect x="0" y="0" width="312" height="64" rx="32" fill="#ff2d55" stroke="#111" stroke-width="4"/>
+  <polygon points="44,18 44,46 68,32" fill="#fff"/>
+  <text x="182" y="42" text-anchor="middle" font-family="'Hiragino Sans','Yu Gothic','Noto Sans JP','Meiryo',sans-serif" font-size="26" font-weight="900" fill="#fff">ブラウザであそぶ</text>
+</svg>
